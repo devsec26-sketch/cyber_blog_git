@@ -34,9 +34,18 @@ class UserController extends Controller
     }
 
     public function update(Request $request, $id){
-        $user = User::find($id);
+       $user = User::find($id);
 
-        $user->update($request->all());
+$ValidateData = $request->validate([
+    'name'  => 'required|string|max:55',
+    'email' => 'required|email|max:55|unique:users,email,' . $id,
+]); 
+
+$user->update($ValidateData);
+
+       // $user->name=$request->name;
+         //$user->email=$request->email;
+         //$user->save();
 
         return back()->with('message','User updated');
     }
@@ -107,11 +116,12 @@ class UserController extends Controller
         return redirect()->back()->with('message','Image updated');
     }
 
-    public function download(Request $request) {
+   // public function download(Request $request) {
+     //   return Storage::disk('local')->download($request->$_GET('filename'));
 
 
-        return response()->download(storage_path('app/private/'.$request->get('filename')));
-    }
+    //not secure    return response()->download(storage_path('app/private/'.$request->get('filename')));
+    //}
 
 
 
@@ -123,27 +133,7 @@ class UserController extends Controller
         if(!$request->hasFile('file')) {
             return back()->with('message','Forbidden Operation');
         }
-//        $path = storage_path("app/public/docs/users/".$user->id);
-        
 
-
-
-    //    if (!file_exists($path)) {
-         //   mkdir($path, 0777, true);
-      //  }
-
-//        // retrieve uploaded file
-        //$newFile = $request->file('file');
-        //$filename = $newFile->getClientOriginalName();
-       // $newFile->move($path, $filename);
-       // File::create([
-        //    'user_id' => $user->id,
-          //  'filename' => $filename,
-      //  ]);
-
-        // calculate hash
-
-      
 
         // SECURE with 
         //define allowed file types
@@ -173,7 +163,6 @@ class UserController extends Controller
         }
                 $fileRecord = File::where('uid', $file)->where('user_id', $user->id)->firstOrFail();
 
-       // $fileRecord = File::where('uid', $file)->where('user_id', $user->id)->firstOrFail();
 
         IF(!$fileRecord) {
             return back()->with('message','File not found');

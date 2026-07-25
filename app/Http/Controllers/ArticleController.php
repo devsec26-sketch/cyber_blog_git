@@ -1,29 +1,37 @@
 <?php 
 
 namespace App\Http\Controllers;
-
 use App\Models\Article;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Services\HtmlFilterService;
+use Illuminate\Support\Facades\Gate; // <--- Modificato qui
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http; //   
 
 class ArticleController extends Controller
 {
     public function index(Request $request, HtmlFilterService $htmlFilterService)
     {
-        // UNSECURE
-        $articles = Article::latest()->where('published',true)->take(6)->get();
+
+ //$response = Http::get('https://jsonplaceholder.typicode.com/photos');
+
+        // 2. Check if the request was successful
+      //  if ($response->successful()) {
+            // 3. Convert the response to an array or object
+        //    $data = $response->json();
+
+       $articles = Article::latest()->where('published',true)->take(6)->get();
 
         // SECURE
-        //$articles = $htmlFilterService->filterHtmlCollectionByField($articles,'content');
+        $articles = $htmlFilterService->filterHtmlCollectionByField($articles,'content');
         if ($request->wantsJson()) {
             return response()->json($articles);
         }
         
-        return view('articles.index', compact('articles'));
+        return view('articles.index', compact('articles',));
+    
     }
-
     public function search(Request $request){
         
         // UNSECURE
@@ -37,38 +45,49 @@ class ArticleController extends Controller
     }
     
     // UNSECURE
-    public function show(Article $article, Request $request)
-    {
-        if ($request->wantsJson()) {
-            return response()->json($article);
-        }
-        
-        return view('articles.show', compact('article'));
-    }
+   // public function show(Article $article, Request $request)
+    //{
+            // $article->content = $htmlFilterService->filterHtml($article->content);
 
-    // SECURE
-    // public function show(Article $article, Request $request,HtmlFilterService $htmlFilterService)
-    // {
-    //     $article->content = $htmlFilterService->filterHtml($article->content);
-    //     if ($request->wantsJson()) {
-    //         return response()->json($article);
-    //     }
+        //if ($request->wantsJson()) {
+          //  return response()->json($article);
+        //}
         
-    //     return view('articles.show', compact('article'));
-    // }
+      //  return view('articles.show', compact('article'));
+    //}
+
+    // SECURE 
+    public function show(Article $article, Request $request,HtmlFilterService $htmlFilterService)
+{
+    $article->content = $htmlFilterService->filterHtml($article->content);
+      if ($request->wantsJson()) {
+         return response()->json($article);
+    }
+        
+    return view('articles.show', compact('article')); 
+    }
     
     public function create()
     {
         return view('articles.create');
     }
     
-    public function store(Request $request/*,HtmlFilterService $htmlFilterService*/)
+    public function store(Request $request,HtmlFilterService $htmlFilterService)
     {
         // UNSECURE
         $articleData = $request->all();
 
+        //$validate=$articleData->validate([]);
+     $article=new Article();
+     $article->title=$articleData['title'];
+     $article->content=$articleData['content'];
+     $article->published=$articleData['published'] ??false;
+     $article->user_id=$articleData['user_id']?? auth()->id();
+     $article->save();
+
+
         // SECURE
-        //$articleData['content'] = $htmlFilterService->filterHtml($articleData['content']);
+        $articleData['content'] = $htmlFilterService->filterHtml($articleData['content']);
         
         if(!key_exists('user_id',$articleData)){
             $articleData['user_id']= Auth::id();
@@ -85,23 +104,29 @@ class ArticleController extends Controller
 
     public function edit(Article $article)
     {
+              //  Gate::autorize('update', $article);
+
         // SECURE per bloccare l'accesso alla pagina di modifica a chi non è l'autore dell'articolo
-        if(Auth::id() !== $article->user_id && !Auth::user()->isAdmin()){
-            return redirect()->route('articles.show', $article)->with('message','Not authorized');
-        }
+        //if(Auth::id() !== $article->user_id && !Auth::user()->isAdmin()){
+          //  return redirect()->route('articles.show', $article)->with('message','Not authorized');
+        //}
+                Gate::authorize('update', $article);
+
+
         return view('articles.edit',compact('article'));
     }
 
     public function update(Request $request, Article $article/*,HtmlFilterService $htmlFilterService*/)
     {
+        Gate::authorize('update', $article);
         // UNSECURE
 
-        if(Auth::id() !== $article->user_id && !Auth::user()->isAdmin()){ {
-            if ($request->wantsJson()) {
-                return response()->json(['message' => 'Not authorized'], 403);
-            }
-            return redirect()->route('articles.show', $article)->with('message','Not authorized');
-        }
+        //if(Auth::id() !== $article->user_id && !Auth::user()->isAdmin()){ {
+          //  if ($request->wantsJson()) {
+            //    return response()->json(['message' => 'Not authorized'], 403);
+            //}
+           // return redirect()->route('articles.show', $article)->with('message','Not authorized');
+        //}
         $articleData = $request->all();
 
         // SECURE
@@ -115,14 +140,15 @@ class ArticleController extends Controller
         
         return redirect()->route('articles.show', $article);
     }
-    }
+    
     public function destroy(Article $article, Request $request)
     {
         // SECURE
-        if(Auth::id() !== $article->user_id){
-        return redirect()->route('articles.show', $article)->with('message','Not authorized');
-        }
-        
+        //if(Auth::id() !== $article->user_id){
+        //return redirect()->route('articles.show', $article)->with('message','Not authorized');
+        //}
+        Gate::authorize('delete', $article);
+
         $article->delete();
         
 
@@ -131,5 +157,4 @@ class ArticleController extends Controller
         }
         
         return redirect()->route('articles.index')->with('message','Article deleted successfully');
-    }
-}
+    }}

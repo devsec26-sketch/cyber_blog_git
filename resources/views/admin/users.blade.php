@@ -41,16 +41,17 @@
                       @endif
                     </td>
                     <td>
-                      {{-- UNSECURE --}}
+                      {{-- UNSECURE 
                       <a href="{{route('admin.users.toggle',$user->id)}}" class="btn btn-sm {{ $user->isAdmin() ? 'btn-outline-danger' : 'btn-outline-success' }}">
                         @if($user->isAdmin())
                           <i class="bi bi-person-dash me-1"></i> Revoke admin
                         @else
                           <i class="bi bi-person-check me-1"></i> Set admin
-                        @endif
+                        @endif 
                       </a>
+                      --}}
 
-                      {{-- SECURE 
+                      {{-- SECURE --}}
                       <form action="{{route('admin.users.toggle',$user->id)}}" method="post" class="d-inline">
                           @csrf
                           @if($user->isAdmin())
@@ -59,7 +60,6 @@
                           <button type="submit" class="btn btn-sm btn-outline-success"><i class="bi bi-person-check me-1"></i> Set admin</button>
                           @endif
                       </form>
-                      --}}
                     </td>
                   </tr>
                   @endforeach

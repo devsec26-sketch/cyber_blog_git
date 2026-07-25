@@ -23,6 +23,7 @@
           @endif
         </h2>
       </div>
+     
       @forelse ($articles as $article)
         <div class="col-md-4 mb-5 d-flex align-items-stretch">
           <div class="card shadow-lg border-0 w-100 h-100 article-card position-relative overflow-hidden" style="transition: transform .2s;">

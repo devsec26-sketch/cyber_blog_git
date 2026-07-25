@@ -19,7 +19,7 @@
             <form action="{{route('articles.destroy',$article->id)}}" method="POST" onsubmit="return confirm('Are you sure you want to delete this article?');">
               @csrf
               @method('DELETE')
-              <a href="{{route('articles.destroy',$article->id)}}" class="btn btn-danger rounded-pill px-4 fw-semibold"><i class="bi bi-trash me-1"></i> Delete</a>
+              <button class="btn btn-danger "><i class="bi bi-trash me-1"></i> Delete</button> 
             </div>
             @endif
             <div class="text-justify mb-4 fs-5 lh-lg">

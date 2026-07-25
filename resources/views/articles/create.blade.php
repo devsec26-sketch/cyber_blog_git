@@ -15,6 +15,7 @@
               <div class="mb-3">
                 <label for="title" class="form-label fw-semibold">Title</label>
                 <input type="text" class="form-control rounded-pill" id="title" placeholder="An interesting title here" name="title">
+
               </div>
               <div class="mb-3">
                 <label for="editor" class="form-label fw-semibold">Content</label>
