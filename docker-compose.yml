@@ -1,30 +1,41 @@
 version: '3.8'
 
 services:
-  # Laravel Application Service
   app:
     build:
       context: .
       dockerfile: Dockerfile
+    image: cyber-blog-app
+    container_name: blog-app
+    restart: unless-stopped
+    working_dir: /var/www
     volumes:
-      - .:/var/www
-    depends_on:
-      - db
+      - ./:/var/www
 
-  # MySQL Database Service
+  webserver:
+    image: nginx:alpine
+    container_name: blog-webserver
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./:/var/www
+      - ./docker-compose/nginx:/etc/nginx/conf.d/
+    depends_on:
+      - app
+
   db:
     image: mysql:8.0
+    container_name: blog-db
     restart: unless-stopped
-    tty: true
     ports:
       - "3306:3306"
     environment:
-      MYSQL_DATABASE: laravel_testing
-      MYSQL_ROOT_PASSWORD: root_password_here
-      MYSQL_USER: mido
-      MYSQL_PASSWORD: mido_password_here
+      MYSQL_DATABASE: cyber_blog
+      MYSQL_ROOT_PASSWORD: root_password
     volumes:
-      - mysql_data:/var/lib/mysql
+      - dbdata:/var/lib/mysql
 
 volumes:
-  mysql_data:
+  dbdata:
+

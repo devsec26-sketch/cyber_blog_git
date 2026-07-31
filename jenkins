@@ -1,0 +1,75 @@
+pipeline {
+    agent any
+
+    environment {
+        // تحديد اسم فريد للمشروع لمنع التداخل بين عمليات البناء
+        COMPOSE_PROJECT_NAME = "cyber_blog_pipeline_${BUILD_NUMBER}"
+    }
+
+    stages {
+        stage('1. Checkout Code') {
+            steps {
+                // جلب الكود من مستودع الـ Git المربوط في المشروع
+                checkout scm
+            }
+        }
+
+        stage('2. Prepare Environment') {
+            steps {
+                // إنشاء ملف البيئة للمشروع بناءً على النسخة الافتراضية
+                sh 'cp .env.example .env'
+                
+                // تعديل إعدادات الاتصال بـ MySQL لتتوافق مع بيئة الدوكر المخصصة
+                sh "sed -i 's/DB_HOST=127.0.0.1/DB_HOST=db/g' .env"
+                sh "sed -i 's/DB_DATABASE=laravel/DB_DATABASE=cyber_blog/g' .env"
+                sh "sed -i 's/DB_USERNAME=root/DB_USERNAME=root/g' .env"
+                sh "sed -i 's/DB_PASSWORD=/DB_PASSWORD=root_password/g' .env"
+            }
+        }
+
+        stage('3. Build & Run Docker Containers') {
+            steps {
+                // بناء وتشغيل الحاويات (App, Webserver, DB) في الخلفية
+                sh 'docker-compose up -d --build'
+            }
+        }
+
+        stage('4. Install Dependencies') {
+            steps {
+                // تثبيت حزم الـ Composer وتوليد المفتاح الأمني داخل حاوية التطبيق
+                sh 'docker-compose exec -T app composer install'
+                sh 'docker-compose exec -T app php artisan key:generate'
+            }
+        }
+
+        stage('5. Run Migrations & Seeds') {
+            steps {
+                // انتظار حاوية MySQL لمدة 10 ثوانٍ للتأكد من إقلاعها بالكامل قبل الاتصال
+                sh 'sleep 10' 
+                
+                // إنشاء الجداول في قاعدة البيانات وحقن البيانات الافتراضية (مهم للمشروع)
+                sh 'docker-compose exec -T app php artisan migrate:fresh --seed'
+            }
+        }
+
+        stage('6. Run Unit Tests') {
+            steps {
+                // تشغيل اختبارات PHPUnit للتأكد من سلامة كود المشروع
+                sh 'docker-compose exec -T app php artisan test'
+            }
+        }
+    }
+
+    post {
+        always {
+            // تنظيف وإغلاق الحاويات وحذف الـ Volumes المؤقتة بعد انتهاء العمليات لحفظ موارد السيرفر
+            sh 'docker-compose down -v'
+        }
+        success {
+            echo '✅ تم بناء مشروع لارافيل وتشغيل الحاويات واجتياز الاختبارات بنجاح!'
+        }
+        failure {
+            echo '❌ فشل في بناء المشروع، يرجى مراجعة الـ Console Output للتفاصيل.'
+        }
+    }
+}
