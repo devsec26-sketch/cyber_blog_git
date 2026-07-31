@@ -24,48 +24,38 @@ pipeline {
 
         stage('3. Build & Run Docker Containers') {
             steps {
-                // إنشاء شبكة دوكر داخلية لربط الحاويات ببعضها
                 sh 'docker network create blog-net || true'
-                
-                // تشغيل حاوية قاعدة البيانات أولاً بشكل مستقل
                 sh 'docker run -d --name db --network blog-net -e MYSQL_DATABASE=cyber_blog -e MYSQL_ROOT_PASSWORD=root_password mysql:8.0'
-                
-                // بناء صورة التطبيق البرمجية محلياً 
                 sh 'docker build -t cyber-blog-app .'
-                
-                // تشغيل حاوية التطبيق وربطها بالشبكة
                 sh 'docker run -d --name app --network blog-net -v "$(pwd):/var/www" cyber-blog-app'
-                
-                // تشغيل خادم الويب Nginx وتوجيه المنفذ المحلي 8000
                 sh 'docker run -d --name webserver --network blog-net -p 8000:80 -v "$(pwd):/var/www" -v "$(pwd)/docker-compose/nginx:/etc/nginx/conf.d/" nginx:alpine'
             }
         }
 
         stage('4. Install Dependencies') {
             steps {
-                // تنفيذ الأوامر داخل الحاوية القياسية بشكل مباشر
-                sh 'docker exec app composer install'
-                sh 'docker exec  app php artisan key:generate'
+                // added -w /var/www to force commands to execute inside your project folder
+                sh 'docker exec -w /var/www app composer install'
+                sh 'docker exec -w /var/www app php artisan key:generate'
             }
         }
 
         stage('5. Run Migrations & Seeds') {
             steps {
-                sh 'sleep 12' 
-                sh 'docker exec  app php artisan migrate:fresh --seed'
+                sh 'sleep 15' // Increased slightly to give MySQL plenty of time to initialize
+                sh 'docker exec -w /var/www app php artisan migrate:fresh --seed'
             }
         }
 
         stage('6. Run Unit Tests') {
             steps {
-                sh 'docker exec app php artisan test'
+                sh 'docker exec -w /var/www app php artisan test'
             }
         }
     }
 
     post {
         always {
-            // إيقاف الحاويات ومسحها لتنظيف الذاكرة بشكل كامل وصحيح
             sh 'docker rm -f webserver app db || true'
             sh 'docker network rm blog-net || true'
         }
