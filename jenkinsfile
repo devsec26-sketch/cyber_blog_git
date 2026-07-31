@@ -44,21 +44,21 @@ pipeline {
         stage('4. Install Dependencies') {
             steps {
                 // تنفيذ الأوامر داخل الحاوية القياسية بشكل مباشر
-                sh 'docker exec -T app composer install'
-                sh 'docker exec -T app php artisan key:generate'
+                sh 'docker exec app composer install'
+                sh 'docker exec  app php artisan key:generate'
             }
         }
 
         stage('5. Run Migrations & Seeds') {
             steps {
                 sh 'sleep 12' 
-                sh 'docker exec -T app php artisan migrate:fresh --seed'
+                sh 'docker exec  app php artisan migrate:fresh --seed'
             }
         }
 
         stage('6. Run Unit Tests') {
             steps {
-                sh 'docker exec -T app php artisan test'
+                sh 'docker exec app php artisan test'
             }
         }
     }
