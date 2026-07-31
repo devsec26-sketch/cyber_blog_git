@@ -2,24 +2,19 @@ pipeline {
     agent any
 
     environment {
-        // تحديد اسم فريد للمشروع لمنع التداخل بين عمليات البناء
         COMPOSE_PROJECT_NAME = "cyber_blog_pipeline_${BUILD_NUMBER}"
     }
 
     stages {
         stage('1. Checkout Code') {
             steps {
-                // جلب الكود من مستودع الـ Git المربوط في المشروع
                 checkout scm
             }
         }
 
         stage('2. Prepare Environment') {
             steps {
-                // إنشاء ملف البيئة للمشروع بناءً على النسخة الافتراضية
                 sh 'cp .env.example .env'
-                
-                // تعديل إعدادات الاتصال بـ MySQL لتتوافق مع بيئة الدوكر المخصصة
                 sh "sed -i 's/DB_HOST=127.0.0.1/DB_HOST=db/g' .env"
                 sh "sed -i 's/DB_DATABASE=laravel/DB_DATABASE=cyber_blog/g' .env"
                 sh "sed -i 's/DB_USERNAME=root/DB_USERNAME=root/g' .env"
@@ -29,41 +24,50 @@ pipeline {
 
         stage('3. Build & Run Docker Containers') {
             steps {
-                // بناء وتشغيل الحاويات (App, Webserver, DB) في الخلفية
-                sh 'docker-compose up -d --build'
+                // إنشاء شبكة دوكر داخلية لربط الحاويات ببعضها
+                sh 'docker network create blog-net || true'
+                
+                // تشغيل حاوية قاعدة البيانات أولاً بشكل مستقل
+                sh 'docker run -d --name db --network blog-net -e MYSQL_DATABASE=cyber_blog -e MYSQL_ROOT_PASSWORD=root_password mysql:8.0'
+                
+                // بناء صورة التطبيق البرمجية محلياً 
+                sh 'docker build -t cyber-blog-app .'
+                
+                // تشغيل حاوية التطبيق وربطها بالشبكة
+                sh 'docker run -d --name app --network blog-net -v "$(pwd):/var/www" cyber-blog-app'
+                
+                // تشغيل خادم الويب Nginx وتوجيه المنفذ المحلي 8000
+                sh 'docker run -d --name webserver --network blog-net -p 8000:80 -v "$(pwd):/var/www" -v "$(pwd)/docker-compose/nginx:/etc/nginx/conf.d/" nginx:alpine'
             }
         }
 
         stage('4. Install Dependencies') {
             steps {
-                // تثبيت حزم الـ Composer وتوليد المفتاح الأمني داخل حاوية التطبيق
-                sh 'docker-compose exec -T app composer install'
-                sh 'docker-compose exec -T app php artisan key:generate'
+                // تنفيذ الأوامر داخل الحاوية القياسية بشكل مباشر
+                sh 'docker exec -T app composer install'
+                sh 'docker exec -T app php artisan key:generate'
             }
         }
 
         stage('5. Run Migrations & Seeds') {
             steps {
-                // انتظار حاوية MySQL لمدة 10 ثوانٍ للتأكد من إقلاعها بالكامل قبل الاتصال
-                sh 'sleep 10' 
-                
-                // إنشاء الجداول في قاعدة البيانات وحقن البيانات الافتراضية (مهم للمشروع)
-                sh 'docker-compose exec -T app php artisan migrate:fresh --seed'
+                sh 'sleep 12' 
+                sh 'docker exec -T app php artisan migrate:fresh --seed'
             }
         }
 
         stage('6. Run Unit Tests') {
             steps {
-                // تشغيل اختبارات PHPUnit للتأكد من سلامة كود المشروع
-                sh 'docker-compose exec -T app php artisan test'
+                sh 'docker exec -T app php artisan test'
             }
         }
     }
 
     post {
         always {
-            // تنظيف وإغلاق الحاويات وحذف الـ Volumes المؤقتة بعد انتهاء العمليات لحفظ موارد السيرفر
-            sh 'docker-compose down -v'
+            // إيقاف الحاويات ومسحها لتنظيف الذاكرة بشكل كامل وصحيح
+            sh 'docker rm -f webserver app db || true'
+            sh 'docker network rm blog-net || true'
         }
         success {
             echo '✅ تم بناء مشروع لارافيل وتشغيل الحاويات واجتياز الاختبارات بنجاح!'
